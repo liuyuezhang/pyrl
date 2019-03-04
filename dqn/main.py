@@ -21,7 +21,6 @@ BATCH_SIZE = 32
 BUFFER_SIZE = 1000000
 
 GAMMA = 0.99
-LEARNING_RATE = 1e-4
 TARGET_FREQ = 10000
 UPDATE_FREQ = 4
 
@@ -50,16 +49,25 @@ class ExperienceBuffer:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="breakout", help="Name of the environment, default=breakout")
-    parser.add_argument("--seed", type=int, default=0, help="Random seed, default=0")
-    parser.add_argument("--cuda", default=True, help="Enable cuda, default=True")
+    parser = argparse.ArgumentParser(description='DQN')
+    parser.add_argument('--env', default='PongNoFrameskip-v4')
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--num_timesteps', type=int, default=50e6)
+    parser.add_argument('--max_episode_steps', type=int, default=10000)
+    parser.add_argument('--stacked_frames', type=int, default=4)
+    parser.add_argument('--cuda', default=True)
+
+    parser.add_argument('--optimizer', default='Adam')
+    parser.add_argument('--lr', default=0.0001, type=float)
+    parser.add_argument('--amsgrad', default=True)
+
     args = parser.parse_args()
 
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    path = './res/' + time.strftime('%Y%m%d') + '-' + args.env + '-' + 'dqn' + '-' + str(args.seed) + '/'
-    os.makedirs(path)
+    path = './res/' + args.env + '_' + 'dqn' + '_' + str(args.seed) + '/'
+    if not os.path.exists(path):
+        os.makedirs(path)
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -68,7 +76,7 @@ if __name__ == "__main__":
     if torch.backends.cudnn.enabled:
         torch.backends.cudnn.deterministic = True
 
-    env = make_env(env=args.env, seed=args.seed, repeat_act=0.0)
+    env = make_env(env_id=args.env)
 
     t = 0
     epsilon = EPSILON_START
@@ -160,29 +168,3 @@ if __name__ == "__main__":
                 # Every C steps reset Q_hat = Q
                 if t % TARGET_FREQ == 0:
                     tgt_net.load_state_dict(net.state_dict())
-
-
-# import cv2
-#
-# while t < 200000:
-#     envs.reset()
-#     state = envs.ob()
-#     done = False
-#
-#     eps_reward = 0.0
-#     while not done:
-#         a = envs.act_set[np.random.choice(len(envs.act_set))]
-#         reward = envs.act(a)
-#         next_state = envs.ob()
-#         done = envs.done()
-#         t += 1
-#
-#         screen = state[0]
-#         cv2.namedWindow("screen", cv2.WINDOW_NORMAL)
-#         cv2.imshow("screen", screen)
-#         if cv2.waitKey(50) & 0xFF == ord('q'):
-#             break
-#
-#         eps_reward += reward
-#         state = next_state
-#     print("Episode " + " ended with score: " + str(eps_reward))
