@@ -81,7 +81,6 @@ class EpisodicLifeEnv(gym.Wrapper):
             done = True
         self.lives = lives
         return obs, reward, done, self.was_real_done
-        # return obs, reward, done, info
 
     def reset(self):
         """Reset only when lives are exhausted.
@@ -213,7 +212,7 @@ class ScaledFloatFrame(gym.ObservationWrapper):
 
 class ImageToPyTorch(gym.ObservationWrapper):
     """
-    Change image shape to CWH
+    Change image shape, from HWC to CHW
     """
     def __init__(self, env):
         super(ImageToPyTorch, self).__init__(env)
@@ -222,7 +221,7 @@ class ImageToPyTorch(gym.ObservationWrapper):
                                                 dtype=np.float32)
 
     def observation(self, observation):
-        return np.swapaxes(observation, 2, 0)
+        return np.moveaxis(observation, 2, 0)
 
 
 class NormalizedEnv(gym.ObservationWrapper):

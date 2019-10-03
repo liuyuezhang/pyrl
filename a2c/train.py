@@ -1,5 +1,5 @@
 from envs.atari.env import make_env
-from a3c.model import AC_LSTM
+from a2c.model import AC_LSTM
 
 import torch
 import torch.nn.functional as F
@@ -26,15 +26,15 @@ def train(idx, args, T, lock, shared_net, optimizer):
     if args.cuda:
         torch.cuda.manual_seed(args.seed + idx)
 
-    env = make_env(args.env, seed=args.seed+idx, stack_frames=args.stacked_frames,
+    env = make_env(args.env, stack_frames=args.stacked_frames,
                    max_episode_steps=args.max_episode_steps,
                    episodic_life=True, reward_clipping=True)
-
     if optimizer is None:
         if args.optimizer == 'RMSprop':
             optimizer = optim.RMSprop(shared_net.parameters(), lr=args.lr)
         if args.optimizer == 'Adam':
             optimizer = optim.Adam(shared_net.parameters(), lr=args.lr, amsgrad=args.amsgrad)
+    env.seed(args.seed + idx)
     
     net = AC_LSTM(env.observation_space.shape[0], env.action_space.n).to(device)
     net.train()

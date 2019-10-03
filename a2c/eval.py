@@ -1,5 +1,5 @@
 from envs.atari.env import make_env
-from a3c.model import AC_LSTM
+from a2c.model import AC_LSTM
 from common.logger import Logger
 
 import os
@@ -35,10 +35,9 @@ if __name__ == '__main__':
     if torch.backends.cudnn.enabled:
         torch.backends.cudnn.deterministic = True
 
-    env = make_env(args.env, stack_frames=args.stacked_frames,
+    env = make_env(args.env, seed=args.seed, stack_frames=args.stacked_frames,
                    max_episode_steps=args.max_episode_steps,
                    episodic_life=True, reward_clipping=False)
-    env.seed(args.seed)
 
     net = AC_LSTM(env.observation_space.shape[0], env.action_space.n, debug=True).to(device)
     saved_state = torch.load(path + 'model.dat')
@@ -46,6 +45,7 @@ if __name__ == '__main__':
     net.eval()
 
     logger = Logger(name="eval", path=path, print_log=True, save_model=False)
+    logger.add_model(net)
 
     for i in range(args.num_episodes):
         state = env.reset()
