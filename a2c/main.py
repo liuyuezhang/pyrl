@@ -3,7 +3,6 @@ from a2c.model import AC_LSTM
 from a2c.train import train
 
 from common.vec_env.subproc_vec_env import SubprocVecEnv
-from common.vec_env.vec_frame_stack import VecFrameStack
 
 import os
 import argparse
@@ -31,6 +30,7 @@ if __name__ == '__main__':
     if not os.path.exists(path):
         os.makedirs(path)
 
+    # seed
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
@@ -47,4 +47,8 @@ if __name__ == '__main__':
     net = AC_LSTM(venv.observation_space.shape[0], venv.action_space.n)
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
-    # train(args, env=venv, logger, optimizer, device)
+    # device
+    device = torch.device("cuda" if args.cuda else "cpu")
+
+    # train
+    train(args, env=venv, model=model, logger=logger, device=device)
