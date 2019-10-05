@@ -1,6 +1,3 @@
-from dqn.train import train
-from common.logger import Logger
-
 import argparse
 import os
 import numpy as np
@@ -10,27 +7,43 @@ import torch
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('DQN')
-    parser.add_argument('--env',               type=str, default='Breakout')
-    parser.add_argument('--max-episode-steps', type=int, default=10000)
-    parser.add_argument('--stack-frames',      type=int, default=4)
-    parser.add_argument('--seed',              type=int, default=0)
+    parser.add_argument('--env',               type=str,   default='Breakout')
+    parser.add_argument('--max-episode-steps', type=int,   default=10000)
+    parser.add_argument('--stack-frames',      type=int,   default=4)
+    parser.add_argument('--seed',              type=int,   default=0)
 
-    parser.add_argument('--total-steps',   type=int,   default=int(50e6))
-    parser.add_argument('--init-steps',    type=int,   default=50000)
-    parser.add_argument('--batch-size',    type=int,   default=32)
-    parser.add_argument('--buffer-size',   type=int,   default=int(1e6))
-    parser.add_argument('--gamma',         type=float, default=0.99)
-    parser.add_argument('--target-freq',   type=int,   default=10000)
-    parser.add_argument('--update-freq',   type=int,   default=4)
-    parser.add_argument('--update-steps',  type=int,   default=1)
-    parser.add_argument('--epsilon-start', type=float, default=1.0)
-    parser.add_argument('--epsilon-final', type=float, default=0.1)
-    parser.add_argument('--epsilon-steps', type=int,   default=int(1e6))
+    parser.add_argument('--total-steps',       type=int,   default=int(50e6))
+    parser.add_argument('--init-steps',        type=int,   default=50000)
+    parser.add_argument('--batch-size',        type=int,   default=32)
+    parser.add_argument('--buffer-size',       type=int,   default=int(1e6))
+    parser.add_argument('--gamma',             type=float, default=0.99)
+    parser.add_argument('--target-freq',       type=int,   default=10000)
+    parser.add_argument('--update-freq',       type=int,   default=4)
+    parser.add_argument('--update-steps',      type=int,   default=1)
+    parser.add_argument('--epsilon-start',     type=float, default=1.0)
+    parser.add_argument('--epsilon-final',     type=float, default=0.1)
+    parser.add_argument('--epsilon-steps',     type=int,   default=int(1e6))
 
-    parser.add_argument('--optimizer', type=str,   default='Adam')
-    parser.add_argument('--lr',        type=float, default=1e-4)
-    parser.add_argument('--cuda',                  default=True)
+    parser.add_argument('--optimizer',         type=str,   default='Adam')
+    parser.add_argument('--lr',                type=float, default=1e-4)
+    parser.add_argument('--cuda',                          default=True)
     args = parser.parse_args()
+
+    # seed
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if args.cuda:
+        torch.cuda.manual_seed(args.seed)
+    if torch.backends.cudnn.enabled:
+        torch.backends.cudnn.deterministic = True
+
+    # path
+    path = './res/' + args.env + '_' + 'dqn' + '_' + str(args.seed) + '/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    # device
+    device = torch.device("cuda" if args.cuda else "cpu")
 
     # env
     from envs.atari.env import make_env
@@ -41,20 +54,6 @@ if __name__ == "__main__":
     from dqn.model import DQN
     model = DQN
 
-    # seed
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if args.cuda:
-        torch.cuda.manual_seed(args.seed)
-
-    # logger
-    path = './res/' + args.env + '_' + 'ddqn' + '_' + str(args.seed) + '/'
-    if not os.path.exists(path):
-        os.makedirs(path)
-    logger = Logger(path=path)
-
-    # device
-    device = torch.device("cuda" if args.cuda else "cpu")
-
     # train
-    train(args, env=env, model=model, logger=logger, device=device)
+    from dqn.train import train
+    train(args, env=env, model=model, path=path, device=device)

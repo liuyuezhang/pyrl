@@ -41,9 +41,9 @@ def test(args, T, shared_net, path):
 
         # Receive reward and new state
         state, reward, done, info = env.step(action)
-        state_v = torch.from_numpy(state).float()
-
         logger.log(T.value, reward, info)
+
+        state_v = torch.from_numpy(state).float()
 
         if done:
             state = env.reset()

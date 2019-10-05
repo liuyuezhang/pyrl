@@ -5,13 +5,13 @@ import torch
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='A2C-LSTM')
+    parser = argparse.ArgumentParser(description='PPO-LSTM')
     parser.add_argument('--env',               type=str,   default='BreakoutNoFrameskip-v4')
     parser.add_argument('--seed',              type=int,   default=0)
     parser.add_argument('--num-timesteps',     type=int,   default=20e6)
     parser.add_argument('--max-episode-steps', type=int,   default=2500)
     parser.add_argument('--stacked-frames',    type=int,   default=1)
-    parser.add_argument('--num-processes',     type=int,   default=16)
+    parser.add_argument('--num-processes',     type=int,   default=2)
     parser.add_argument('--cuda',                          default=True)
 
     parser.add_argument('--optimizer',         type=str,   default='Adam')
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.deterministic = True
 
     # path
-    path = './res/' + args.env + '_' + 'a2c-lstm' + '_' + str(args.seed) + '/'
+    path = './res/' + args.env + '_' + 'ppo-lstm' + '_' + str(args.seed) + '/'
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -43,9 +43,9 @@ if __name__ == '__main__':
     venv = SubprocVecEnv(env_fns)
 
     # model
-    from a2c.model import AC_LSTM
+    from ppo.model import AC_LSTM
     model = AC_LSTM
 
     # train
-    from a2c.train import train
+    from ppo.train import train
     train(args, venv=venv, model=model, path=path, device=device)

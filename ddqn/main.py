@@ -1,6 +1,3 @@
-from ddqn.train import train
-from common.logger import Logger
-
 import argparse
 import os
 import numpy as np
@@ -32,6 +29,22 @@ if __name__ == "__main__":
     parser.add_argument('--cuda', default=True)
     args = parser.parse_args()
 
+    # seed
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if args.cuda:
+        torch.cuda.manual_seed(args.seed)
+    if torch.backends.cudnn.enabled:
+        torch.backends.cudnn.deterministic = True
+
+    # path
+    path = './res/' + args.env + '_' + 'ddqn' + '_' + str(args.seed) + '/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    # device
+    device = torch.device("cuda" if args.cuda else "cpu")
+
     # env
     from envs.atari.env import make_env
     env = make_env(args.env + 'NoFrameskip-v4', seed=args.seed, stack_frames=args.stack_frames,
@@ -41,20 +54,6 @@ if __name__ == "__main__":
     from ddqn.model import DQN
     model = DQN
 
-    # seed
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if args.cuda:
-        torch.cuda.manual_seed(args.seed)
-
-    # logger
-    path = './res/' + args.env + '_' + 'ddqn' + '_' + str(args.seed) + '/'
-    if not os.path.exists(path):
-        os.makedirs(path)
-    logger = Logger(path=path)
-
-    # device
-    device = torch.device("cuda" if args.cuda else "cpu")
-
     # train
-    train(args, env=env, model=model, logger=logger, device=device)
+    from ddqn.train import train
+    train(args, env=env, model=model, path=path, device=device)

@@ -1,4 +1,5 @@
 from common.experience_replay import Experience, ExperienceReplay
+from common.logger import Logger
 
 import numpy as np
 
@@ -10,7 +11,7 @@ import torch.optim as optim
 ########################################
 # deep Q-learning with experience replay
 ########################################
-def train(args, env, model, logger, device):
+def train(args, env, model, path, device):
     # Initialize replay memory D to capacity N
     replay_memory = ExperienceReplay(args.buffer_size)
 
@@ -22,6 +23,8 @@ def train(args, env, model, logger, device):
     tgt_net.load_state_dict(net.state_dict())
 
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
+
+    logger = Logger(path=path)
     logger.add_model(net)
 
     t = 0
@@ -45,8 +48,7 @@ def train(args, env, model, logger, device):
 
             # Execute action in emulator and observe reward and next_state
             next_state, reward, done, info = env.step(action)
-            logger.log(t, info, done)
-            # logger.log(t, reward, done)
+            logger.log(t, reward, info)
             t += 1
 
             # Store transition in D

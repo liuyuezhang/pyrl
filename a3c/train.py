@@ -2,6 +2,7 @@ from envs.atari.env import make_env
 from a3c.model import AC_LSTM
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -15,18 +16,8 @@ COEF_VALUE = 0.5
 COEF_ENTROPY = 0.01
 
 
-def train(idx, args, T, lock, shared_net, optimizer):
-    if args.cuda:
-        num_gpu = torch.cuda.device_count()
-        device = torch.device("cuda:" + str(idx % num_gpu))
-    else:
-        device = torch.device("cpu")
-
-    torch.manual_seed(args.seed + idx)
-    if args.cuda:
-        torch.cuda.manual_seed(args.seed + idx)
-
-    env = make_env(args.env, seed=args.seed+idx, stack_frames=args.stacked_frames,
+def train(idx, args, T, lock, shared_net, optimizer, device):
+    env = make_env(args.env, seed=args.seed + idx, stack_frames=args.stacked_frames,
                    max_episode_steps=args.max_episode_steps,
                    episodic_life=True, reward_clipping=True)
 
@@ -111,6 +102,7 @@ def train(idx, args, T, lock, shared_net, optimizer):
         net.zero_grad()
         loss_v = COEF_VALUE * loss_value_v + loss_policy_v + COEF_ENTROPY * loss_entropy_v
         loss_v.backward()
+        nn.utils.clip_grad_norm_(net.parameters(), CLIP_GRAD)
 
         for shared_param, param in zip(shared_net.parameters(), net.parameters()):
             shared_param.grad = param.grad.cpu()
