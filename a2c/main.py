@@ -1,13 +1,13 @@
 from envs.atari.env import make_env
 from a2c.model import AC_LSTM
 from a2c.train import train
-
-from common.vec_env.subproc_vec_env import SubprocVecEnv
+from a2c.test import test
 
 import os
 import argparse
 
 import torch
+import torch.multiprocessing as mp
 import torch.optim as optim
 
 
@@ -18,14 +18,15 @@ if __name__ == '__main__':
     parser.add_argument('--num-timesteps', type=int, default=20e6)
     parser.add_argument('--max-episode-steps', type=int, default=2500)
     parser.add_argument('--stacked-frames', type=int, default=1)
-    parser.add_argument('--num-processes', type=int, default=4)
-    parser.add_argument('--cuda', default=True)
+    parser.add_argument('--num-processes', type=int, default=16)
+    parser.add_argument('--cuda', default=False)
 
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--lr', default=0.0001, type=float)
     parser.add_argument('--amsgrad', default=True)
     args = parser.parse_args()
 
+    # path
     path = './res/' + args.env + '_' + 'a2c-lstm' + '_' + str(args.seed) + '/'
     if not os.path.exists(path):
         os.makedirs(path)
@@ -37,18 +38,21 @@ if __name__ == '__main__':
     if torch.backends.cudnn.enabled:
         torch.backends.cudnn.deterministic = True
 
-    # env
-    env_fns = []
-    for idx in range(args.num_processes):
-        env_fns.append(lambda: make_env(args.env, seed=args.seed + idx))
-    venv = SubprocVecEnv(env_fns)
-
     # policy
-    net = AC_LSTM(venv.observation_space.shape[0], venv.action_space.n)
-    optimizer = optim.Adam(net.parameters(), lr=args.lr)
-
-    # device
     device = torch.device("cuda" if args.cuda else "cpu")
+    env = make_env(args.env, stack_frames=args.stacked_frames)
+    net = AC_LSTM(env.observation_space.shape[0], env.action_space.n).to(device)
+    net.share_memory()
 
-    # train
-    train(args, env=venv, model=model, logger=logger, device=device)
+    optimizer = optim.Adam(net.parameters(), lr=args.lr, amsgrad=args.amsgrad)
+
+    # training and testing
+    T = mp.Value('i', 0)
+    lock = mp.Lock()
+
+    p1 = mp.Process(target=test, args=(args, T, net, path))
+    p1.start()
+    p2 = mp.Process(target=train, args=(args, T, lock, net, optimizer))
+    p2.start()
+    p1.join()
+    p2.join()

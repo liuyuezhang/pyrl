@@ -10,10 +10,10 @@ import torch
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('DQN')
-    parser.add_argument('--env', default='Breakout')
+    parser.add_argument('--env',               type=str, default='Breakout')
     parser.add_argument('--max-episode-steps', type=int, default=10000)
-    parser.add_argument('--stack-frames', type=int, default=4)
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--stack-frames',      type=int, default=4)
+    parser.add_argument('--seed',              type=int, default=0)
 
     parser.add_argument('--total-steps',   type=int,   default=int(50e6))
     parser.add_argument('--init-steps',    type=int,   default=50000)
@@ -27,9 +27,9 @@ if __name__ == "__main__":
     parser.add_argument('--epsilon-final', type=float, default=0.1)
     parser.add_argument('--epsilon-steps', type=int,   default=int(1e6))
 
-    parser.add_argument('--optimizer', default='Adam')
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--cuda', default=True)
+    parser.add_argument('--optimizer', type=str,   default='Adam')
+    parser.add_argument('--lr',        type=float, default=1e-4)
+    parser.add_argument('--cuda',                  default=True)
     args = parser.parse_args()
 
     # env

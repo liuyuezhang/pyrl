@@ -92,7 +92,7 @@ def train(idx, args, T, lock, shared_net, optimizer):
                 break
 
         # R
-        R_v = torch.zeros(1, 1).to(device) if done else net(state_v.unsqueeze(0), (hx, cx))[0]
+        R_v = (1 - done) * net(state_v.unsqueeze(0), (hx, cx))[0]
         value_vs.append(R_v)
 
         for i in reversed(range(len(rewards))):

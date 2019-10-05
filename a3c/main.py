@@ -59,10 +59,10 @@ if __name__ == '__main__':
     processes = []
 
     # Hogwild! training
-    p = mp.Process(target=test, args=(args.num_processes, args, T, shared_net, path))
+    p = mp.Process(target=test, args=(args, T, shared_net, path))
     p.start()
     processes.append(p)
-    for idx in range(args.num_processes):
+    for idx in range(1, args.num_processes + 1):
         p = mp.Process(target=train, args=(idx, args, T, lock, shared_net, optimizer))
         p.start()
         processes.append(p)
