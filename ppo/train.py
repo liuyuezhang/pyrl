@@ -38,92 +38,81 @@ def train(args, venv, model, path, device):
     vlogger.add_model(net)
 
     state = venv.reset()
-    state_v = torch.from_numpy(state).float().to(device)
-    hx = torch.zeros(N, 512).to(device)
-    cx = torch.zeros(N, 512).to(device)
+    hx_v = torch.zeros((N, 512)).to(device)
+    cx_v = torch.zeros((N, 512)).to(device)
 
     t = 0
 
     while t < args.num_timesteps:
-        # Reset gradients
-        loss_value_v = torch.zeros(1, 1).to(device)
-        loss_policy_v = torch.zeros(1, 1).to(device)
-        gae_v = torch.zeros(M, 1).to(device)
-
-        # seperate hx, cx and hx_v, cx_v
-        hx.detach_()
-        cx.detach_()
-
         # change to numpy while running
-        m_states =
-        m_rewards =
-        m_dones =
-        m_hxs =
-        m_cxs =
-        m_old_log_prob_actions =
+        m_states = []
+        m_rewards = []
+        m_dones = []
+        m_hxs = []
+        m_cxs = []
+        m_old_log_prob_actions = []
 
-        # save state, hx, cx, before perform
-        m_state_vs = torch.cat((m_state_vs, state_v.unsqueeze(0)))
-        m_hx_s = torch.cat((m_hx_s, hx.unsqueeze(0)))
-        m_cx_s = torch.cat((m_cx_s, cx.unsqueeze(0)))
+        for step in range(T):
+            # save state, hx, cx, before perform
+            m_states.append(state)
+            hx = hx_v.data.cpu().numpy()
+            cx = cx_v.data.cpu().numpy()
+            m_hxs.append(hx)
+            m_cxs.append(cx)
 
-        for step in range(TRAJECTORY_STEPS):
-            with torch.no_grad():
-                # Perform action according to policy
-                value_v, logit_v, (hx, cx) = net(state_v, (hx, cx))
-                prob_v = F.softmax(logit_v, dim=1)
-                action_v = prob_v.multinomial(num_samples=1)
-                action = action_v.data.cpu().numpy()
+            # Perform action according to policy
+            state_v = torch.from_numpy(state).float().to(device)
+            value_v, logit_v, (hx_v, cx_v) = net(state_v, (hx_v, cx_v))
+            prob_v = F.softmax(logit_v, dim=1)
+            action_v = prob_v.multinomial(num_samples=1)
+            log_prob_v = F.log_softmax(logit_v, dim=1)
+            log_prob_action_v = log_prob_v.gather(1, action_v)
 
-                log_prob_v = F.log_softmax(logit_v, dim=1)
-                log_prob_action_v = log_prob_v.gather(1, action_v)
+            # Receive reward and new state
+            action = action_v.data.cpu().numpy()
+            state, reward, done, info = venv.step(action)
+            t += N
 
-                # Receive reward and new state
-                state, reward, done, info = venv.step(action)
-                t += N
+            reward = np.expand_dims(reward, axis=1)
+            done = np.expand_dims(done, axis=1)
+            info = np.expand_dims(info, axis=1)
+            vlogger.log(t, reward, info)
 
-                reward = np.expand_dims(reward, axis=1)
-                done = np.expand_dims(done, axis=1)
-                info = np.expand_dims(info, axis=1)
-                vlogger.log(t, reward, info)
+            m_rewards.append(reward)
+            m_dones.append(done)
+            log_prob_action = log_prob_action_v.data.cpu().numpy()
+            m_old_log_prob_actions.append(log_prob_action)
 
-                state_v = torch.from_numpy(state).float().to(device)
-                reward_v = torch.from_numpy(reward).float().to(device)
-                done_v = torch.from_numpy(done.astype('int')).float().to(device)
+            # Reset the LSTM state if done
+            done_v = torch.from_numpy(done.astype('int')).float().to(device)
+            hx_v = (1 - done_v) * hx_v
+            cx_v = (1 - done_v) * cx_v
 
-                m_state_vs = torch.cat((m_state_vs, state_v.unsqueeze(0)))
-                m_reward_vs = torch.cat((m_reward_vs, reward_v.unsqueeze(0)))
-                m_done_vs = torch.cat((m_done_vs, done_v.unsqueeze(0)))
-                m_hx_s = torch.cat((m_hx_s, hx.unsqueeze(0)))
-                m_cx_s = torch.cat((m_cx_s, cx.unsqueeze(0)))
-                m_old_log_prob_action_vs = torch.cat((m_old_log_prob_action_vs, log_prob_action_v.unsqueeze(0)))
-
-                # Reset the LSTM state if done
-                hx = (1 - done_v) * hx
-                cx = (1 - done_v) * cx
+        m_states = np.array(m_states)
+        m_hxs = np.array(m_hxs)
+        m_cxs = np.array(m_cxs)
+        m_rewards = np.array(m_rewards)
+        m_dones = np.array(m_dones, dtype='int')
+        m_old_log_prob_actions = np.array(m_old_log_prob_actions)
 
         for _ in range(K):
-            perm = torch.randperm(N).to(device)
+            indices = np.random.permutation(N)
             for k in range(0, N, M):
-                # select a minibatch of processes to get a minibatch of state_vs
-                indices = perm[k:k + M]
+                # Reset gradients
+                loss_value_v = torch.zeros(1, 1).to(device)
+                loss_policy_v = torch.zeros(1, 1).to(device)
+                gae_v = torch.zeros(M, 1).to(device)
 
-                # minibatch tensors shape (T, num_processes_minibatch, ...)
-                state_vs = torch.index_select(m_state_vs, 1, indices)
-                reward_vs = torch.index_select(m_reward_vs, 1, indices)
-                done_vs = torch.index_select(m_done_vs, 1, indices)
-                hx_s = torch.index_select(m_hx_s, 1, indices)
-                cx_s = torch.index_select(m_cx_s, 1, indices)
-                old_log_prob_action_vs = torch.index_select(m_old_log_prob_action_vs, 1, indices)
+                # minibatch tensors shape (T, M, ...)
+                state_vs = torch.from_numpy(m_states[:, indices[k:k+M], ...]).float().view((T*M, 1, 84, 84)).to(device)
+                hx_vs = torch.from_numpy(m_hxs[:, indices[k:k+M], ...]).float().view((T*M, -1)).to(device)
+                cx_vs = torch.from_numpy(m_cxs[:, indices[k:k+M], ...]).float().view((T*M, -1)).to(device)
+                reward_vs = torch.from_numpy(m_rewards[:, indices[k:k+M], ...]).float().to(device)
+                done_vs = torch.from_numpy(m_dones[:, indices[k:k+M], ...]).float().to(device)
+                old_log_prob_action_vs = torch.from_numpy(m_old_log_prob_actions[:, indices[k:k+M], ...]).float().to(device)
 
-                value_vs = torch.Tensor([]).to(device)
-                logit_vs = torch.Tensor([]).to(device)
-                for j in range(0, M):
-                    value_v, logit_v, _ = net(state_vs[:, j, ...], (hx_s[:, j, ...], cx_s[:, j, ...]))
-                    value_vs = torch.cat((value_vs, value_v.unsqueeze(1)), dim=1)
-                    logit_vs = torch.cat((logit_vs, logit_v.unsqueeze(1)), dim=1)
-
-                logit_vs = logit_vs[:-1, ...].view(T * M, -1)
+                # reconstruct under new policy
+                value_vs, logit_vs, _ = net(state_vs, (hx_vs, cx_vs))
                 prob_vs = F.softmax(logit_vs, dim=1)
                 action_vs = prob_vs.multinomial(num_samples=1)
                 log_prob_vs = F.log_softmax(logit_vs, dim=1)
@@ -132,26 +121,26 @@ def train(args, venv, model, path, device):
 
                 # R
                 R_v = (1 - done_vs[-1]) * value_vs[-1]
-                for i in reversed(range(T)):
+                for i in reversed(range(T-1)):
                     R_v = (1 - done_vs[i]) * GAMMA * R_v + reward_vs[i]
                     # Accumulate gradients
                     adv_v = R_v.detach() - value_vs[i]
 
-                    # # Generalized Advantage Estimataion
-                    # delta_t = reward_vs[i] + (1 - done_vs[i]) * GAMMA * value_vs[i + 1] - value_vs[i]
-                    # gae_v = gae_v * (1 - done_vs[i]) * GAMMA * TAU + delta_t
-                    #
-                    # ratio = torch.exp(log_prob_action_vs[i] - old_log_prob_action_vs[i])
-                    # surr1 = ratio * gae_v.detach()
-                    # surr2 = torch.clamp(ratio, 1.0 - PPO_CLIP, 1.0 + PPO_CLIP) * gae_v.detach()
+                    # Generalized Advantage Estimataion
+                    delta_t = reward_vs[i] + (1 - done_vs[i]) * GAMMA * value_vs[i + 1] - value_vs[i]
+                    gae_v = gae_v * (1 - done_vs[i]) * GAMMA * TAU + delta_t
+
+                    ratio = torch.exp(log_prob_action_vs[i] - old_log_prob_action_vs[i])
+                    surr1 = ratio * gae_v.detach()
+                    surr2 = torch.clamp(ratio, 1.0 - PPO_CLIP, 1.0 + PPO_CLIP) * gae_v.detach()
 
                     loss_value_v += (0.5 * adv_v.pow(2)).sum()
-                    # loss_policy_v -= torch.min(surr1, surr2).sum()  # cautious: detach()
+                    loss_policy_v -= torch.min(surr1, surr2).sum()  # cautious: detach()
 
                 loss_entropy_v = (log_prob_vs * prob_vs).sum()
 
                 net.zero_grad()
-                loss_v = COEF_VALUE * loss_value_v # + loss_policy_v + COEF_ENTROPY * loss_entropy_v
+                loss_v = COEF_VALUE * loss_value_v + loss_policy_v + COEF_ENTROPY * loss_entropy_v
                 loss_v.backward()
                 nn.utils.clip_grad_norm_(net.parameters(), CLIP_GRAD)
 
