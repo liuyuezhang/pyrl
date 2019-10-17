@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-episode-steps', type=int,   default=2500)
     parser.add_argument('--stacked-frames',    type=int,   default=1)
     parser.add_argument('--num-processes',     type=int,   default=2)
-    parser.add_argument('--cuda',                          default=True)
+    parser.add_argument('--cuda',                          default=False)
 
     parser.add_argument('--optimizer',         type=str,   default='Adam')
     parser.add_argument('--lr',                type=float, default=0.0001)

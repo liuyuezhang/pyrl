@@ -10,7 +10,7 @@ import torch.optim as optim
 
 GAMMA = 0.99
 TAU = 1.00
-REWARD_STEPS = 20
+REWARD_STEPS = 5
 CLIP_GRAD = 50
 
 COEF_VALUE = 0.5
@@ -56,7 +56,7 @@ def train(args, venv, model, path, device):
             value_v, logit_v, (hx, cx) = net(state_v, (hx, cx))
             prob_v = F.softmax(logit_v, dim=1)
             action_v = prob_v.multinomial(num_samples=1)
-            action = action_v.cpu().numpy()
+            action = action_v.data.cpu().numpy()
 
             log_prob_v = F.log_softmax(logit_v, dim=1)
             log_prob_action_v = log_prob_v.gather(1, action_v)
@@ -75,15 +75,15 @@ def train(args, venv, model, path, device):
             reward_v = torch.from_numpy(reward).float().to(device)
             done_v = torch.from_numpy(done.astype('int')).float().to(device)
 
-            # Reset the LSTM state if done
-            hx = (1 - done_v) * hx
-            cx = (1 - done_v) * cx
-
             reward_vs.append(reward_v)
             done_vs.append(done_v)
             value_vs.append(value_v)
             log_prob_action_vs.append(log_prob_action_v)
             entropy_vs.append(entropy_v)
+
+            # Reset the LSTM state if done
+            hx = (1 - done_v) * hx
+            cx = (1 - done_v) * cx
 
         # R
         R_v = (1 - done_v) * net(state_v, (hx, cx))[0]

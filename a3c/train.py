@@ -9,7 +9,7 @@ import torch.optim as optim
 
 GAMMA = 0.99
 TAU = 1.00
-REWARD_STEPS = 20
+REWARD_STEPS = 5
 CLIP_GRAD = 50
 
 COEF_VALUE = 0.5
