@@ -8,7 +8,7 @@ formatter = logging.Formatter('%(message)s')
 
 
 class VecLogger:
-    def __init__(self, path, n, name='test', span=100, print_log=True, print_freq=4, save_model=True):
+    def __init__(self, path, N, name='test', span=100, print_log=True, print_freq=4, save_model=True):
         """Function setup as many loggers as you want"""
         handler = logging.FileHandler(path + name + '.txt')
         handler.setFormatter(formatter)
@@ -20,7 +20,7 @@ class VecLogger:
         self.logger = logger
         self.logger.info("t,r,info")
 
-        self.n = n
+        self.N = N
         self.name = name
         self.path = path
         self.models = []
@@ -30,8 +30,8 @@ class VecLogger:
         self.print_freq = print_freq
         self.save_model = save_model
 
-        self.eps_reward = np.zeros((self.n, 1))
-        self.eps_length = np.zeros((self.n, 1))
+        self.eps_reward = np.zeros((self.N, 1))
+        self.eps_length = np.zeros((self.N, 1))
         self.eps_cnt = 0
         self.reward_list = []
         self.best_mean_reward = float('-inf')
@@ -41,7 +41,7 @@ class VecLogger:
 
     def log(self, t, reward, done, info=None):
         self.eps_reward += reward
-        self.eps_length += np.ones((self.n, 1))
+        self.eps_length += np.ones((self.N, 1))
 
         if np.sum(done) > 0:
             avr_eps_reward = np.mean(self.eps_reward[done])

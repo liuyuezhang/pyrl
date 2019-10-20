@@ -10,7 +10,7 @@ import torch.optim as optim
 
 GAMMA = 0.99
 TAU = 1.00
-REWARD_STEPS = 5
+N_STEPS = 5
 CLIP_GRAD = 50
 
 COEF_VALUE = 0.5
@@ -18,20 +18,20 @@ COEF_ENTROPY = 0.01
 
 
 def train(args, venv, model, path, device):
-    n = args.num_processes
+    N = args.num_processes
 
     net = model(venv.observation_space.shape[0], venv.action_space.n).to(device)
     net.train()
 
     optimizer = optim.Adam(net.parameters(), lr=args.lr, amsgrad=args.amsgrad)
 
-    vlogger = VecLogger(n=n, path=path)
+    vlogger = VecLogger(N=N, path=path)
     vlogger.add_model(net)
 
     state = venv.reset()
     state_v = torch.from_numpy(state).float().to(device)
-    hx = torch.zeros(n, 512).to(device)
-    cx = torch.zeros(n, 512).to(device)
+    hx = torch.zeros(N, 512).to(device)
+    cx = torch.zeros(N, 512).to(device)
 
     t = 0
 
@@ -40,7 +40,7 @@ def train(args, venv, model, path, device):
         loss_value_v = torch.zeros(1, 1).to(device)
         loss_policy_v = torch.zeros(1, 1).to(device)
         loss_entropy_v = torch.zeros(1, 1).to(device)
-        gae_v = torch.zeros(n, 1).to(device)
+        gae_v = torch.zeros(N, 1).to(device)
 
         hx.detach_()
         cx.detach_()
@@ -51,7 +51,7 @@ def train(args, venv, model, path, device):
         log_prob_action_vs = []
         entropy_vs = []
 
-        for step in range(REWARD_STEPS):
+        for step in range(N_STEPS):
             # Perform action according to policy
             value_v, logit_v, (hx, cx) = net(state_v, (hx, cx))
             prob_v = F.softmax(logit_v, dim=1)
@@ -64,7 +64,7 @@ def train(args, venv, model, path, device):
 
             # Receive reward and new state
             state, reward, done, info = venv.step(action)
-            t += n
+            t += N
 
             reward = np.expand_dims(reward, axis=1)
             done = np.expand_dims(done, axis=1)

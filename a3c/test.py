@@ -1,5 +1,5 @@
 from envs.atari.env import make_env
-from a3c.model import AC_LSTM
+from a3c.model import AtariCnnAcLstm
 from common.logger import Logger
 
 import torch
@@ -15,7 +15,7 @@ def test(args, T, shared_net, path):
                    max_episode_steps=args.max_episode_steps,
                    episodic_life=True, reward_clipping=False)
 
-    net = AC_LSTM(env.observation_space.shape[0], env.action_space.n)
+    net = AtariCnnAcLstm(env.observation_space.shape[0], env.action_space.n)
     net.eval()
 
     logger = Logger(name="test", path=path, print_log=True, save_model=True)

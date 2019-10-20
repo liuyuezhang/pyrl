@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class AC_LSTM(nn.Module):
+class AtariCnnAcLstm(nn.Module):
     def __init__(self, num_inputs, num_actions, debug=False):
-        super(AC_LSTM, self).__init__()
+        super(AtariCnnAcLstm, self).__init__()
         self.conv1 = nn.Conv2d(num_inputs, 32, 8, 4)
         self.conv2 = nn.Conv2d(32, 64, 4, 2)
         self.conv3 = nn.Conv2d(64, 64, 3, 1)

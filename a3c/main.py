@@ -1,5 +1,5 @@
 from envs.atari.env import make_env
-from a3c.model import AC_LSTM
+from a3c.model import ATARI_AC_LSTM
 from a3c.train import train
 from a3c.test import test
 from common.shared_optim import SharedRMSprop, SharedAdam
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # Assume global shared parameter vectors and global shared counter T
     env = make_env(args.env, stack_frames=args.stacked_frames)
-    shared_net = AC_LSTM(env.observation_space.shape[0], env.action_space.n)
+    shared_net = ATARI_AC_LSTM(env.observation_space.shape[0], env.action_space.n)
     shared_net.share_memory()
 
     if args.shared_optimizer:

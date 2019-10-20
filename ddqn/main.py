@@ -51,8 +51,8 @@ if __name__ == "__main__":
                    max_episode_steps=args.max_episode_steps, episodic_life=True, reward_clipping=True)
 
     # model
-    from ddqn.model import DQN
-    model = DQN
+    from ddqn.model import AtariCnnQ
+    model = AtariCnnQ
 
     # train
     from ddqn.train import train

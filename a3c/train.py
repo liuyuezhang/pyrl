@@ -1,5 +1,5 @@
 from envs.atari.env import make_env
-from a3c.model import AC_LSTM
+from a3c.model import AtariCnnAcLstm
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,7 @@ import torch.optim as optim
 
 GAMMA = 0.99
 TAU = 1.00
-REWARD_STEPS = 5
+N_STEPS = 5
 CLIP_GRAD = 50
 
 COEF_VALUE = 0.5
@@ -27,7 +27,7 @@ def train(idx, args, T, lock, shared_net, optimizer, device):
         if args.optimizer == 'Adam':
             optimizer = optim.Adam(shared_net.parameters(), lr=args.lr, amsgrad=args.amsgrad)
     
-    net = AC_LSTM(env.observation_space.shape[0], env.action_space.n).to(device)
+    net = AtariCnnAcLstm(env.observation_space.shape[0], env.action_space.n).to(device)
     net.train()
 
     state = env.reset()
@@ -53,7 +53,7 @@ def train(idx, args, T, lock, shared_net, optimizer, device):
         # Synchronize thread-specific parameters
         net.load_state_dict(shared_net.state_dict())
 
-        for step in range(REWARD_STEPS):
+        for step in range(N_STEPS):
             # Perform action according to policy
             value_v, logit_v, (hx, cx) = net(state_v.unsqueeze(0), (hx, cx))
             prob_v = F.softmax(logit_v, dim=1)

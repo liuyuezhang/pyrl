@@ -43,8 +43,8 @@ if __name__ == '__main__':
     venv = SubprocVecEnv(env_fns)
 
     # model
-    from a2c.model import AC_LSTM
-    model = AC_LSTM
+    from a2c.model import AtariCnnAcLstm
+    model = AtariCnnAcLstm
 
     # train
     from a2c.train import train
