@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
-device = torch.device("cpu")
-
 
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, n_latent_var):
@@ -31,17 +29,6 @@ class ActorCritic(nn.Module):
 
     def forward(self):
         raise NotImplementedError
-
-    def evaluate(self, state, action):
-        action_probs = self.action_layer(state)
-        dist = Categorical(action_probs)
-
-        action_logprobs = dist.log_prob(action)
-        dist_entropy = dist.entropy()
-
-        state_value = self.value_layer(state)
-
-        return action_logprobs, torch.squeeze(state_value), dist_entropy
 
 
 class Memory:
@@ -72,23 +59,21 @@ class PPO:
 
         self.policy = ActorCritic(state_dim, action_dim, n_latent_var).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
-        self.policy_old = ActorCritic(state_dim, action_dim, n_latent_var).to(device)
-        self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
 
     def act(self, state):
         with torch.no_grad():
-            state = torch.from_numpy(state).float().to(device)
-            action_probs = self.policy_old.action_layer(state)
-            dist = Categorical(action_probs)
-            action = dist.sample()
+            state_v = torch.from_numpy(state).float().to(self.device)
+            action_probs_v = self.policy.action_layer(state_v)
+            dist_v = Categorical(action_probs_v)
+            action_v = dist_v.sample()
 
-            self.memory.states.append(state)
-            self.memory.actions.append(action)
-            self.memory.logprobs.append(dist.log_prob(action))
+            self.memory.states.append(state_v)
+            self.memory.actions.append(action_v)
+            self.memory.logprobs.append(dist_v.log_prob(action_v))
 
-        return action.item()
+        return action_v.item()
 
     def step(self, reward, done):
         self.memory.rewards.append(reward)
@@ -106,7 +91,7 @@ class PPO:
 
         # Normalizing the rewards:
         rewards = torch.tensor(rewards).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
 
         # convert list to tensor
         old_states = torch.stack(self.memory.states).to(self.device).detach()
@@ -135,8 +120,5 @@ class PPO:
             self.optimizer.zero_grad()
             loss.mean().backward()
             self.optimizer.step()
-
-        # Copy new weights into old policy:
-        self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.memory.clear()
