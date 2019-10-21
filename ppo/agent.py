@@ -32,18 +32,6 @@ class ActorCritic(nn.Module):
     def forward(self):
         raise NotImplementedError
 
-    def act(self, state, memory):
-        state = torch.from_numpy(state).float().to(device)
-        action_probs = self.action_layer(state)
-        dist = Categorical(action_probs)
-        action = dist.sample()
-
-        memory.states.append(state)
-        memory.actions.append(action)
-        memory.logprobs.append(dist.log_prob(action))
-
-        return action.item()
-
     def evaluate(self, state, action):
         action_probs = self.action_layer(state)
         dist = Categorical(action_probs)
@@ -90,7 +78,17 @@ class PPO:
         self.MseLoss = nn.MSELoss()
 
     def act(self, state):
-        return self.policy_old.act(state, self.memory)
+        with torch.no_grad():
+            state = torch.from_numpy(state).float().to(device)
+            action_probs = self.policy_old.action_layer(state)
+            dist = Categorical(action_probs)
+            action = dist.sample()
+
+            self.memory.states.append(state)
+            self.memory.actions.append(action)
+            self.memory.logprobs.append(dist.log_prob(action))
+
+        return action.item()
 
     def step(self, reward, done):
         self.memory.rewards.append(reward)
@@ -118,16 +116,20 @@ class PPO:
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             # Evaluating old actions and values :
-            logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+            values = self.policy.value_layer(old_states)
+            action_probs = self.policy.action_layer(old_states)
+            dist = Categorical(action_probs)
+            logprobs = dist.log_prob(old_actions)
+            dist_entropy = dist.entropy()
 
             # Finding the ratio (pi_theta / pi_theta__old):
             ratios = torch.exp(logprobs - old_logprobs.detach())
 
             # Finding Surrogate Loss:
-            advantages = rewards - state_values.detach()
+            advantages = rewards - values.detach()
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy
+            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(values, rewards) - 0.01 * dist_entropy
 
             # take gradient step
             self.optimizer.zero_grad()
