@@ -44,7 +44,7 @@ def train(args, venv, model, path, device):
     while t < args.num_timesteps:
         # Run policy pi_old in environment for T timesteps
         with torch.no_grad():
-            # use numpy while running, ppo is an off-policy method as acer
+            # use numpy while running, ppo1 is an off-policy method as acer
             states = []
             hxs = []
             cxs = []
@@ -152,7 +152,7 @@ def train(args, venv, model, path, device):
 
                 loss_value_v = (0.5 * adv_v.pow(2)).mean()
                 loss_policy_v = -torch.min(surr_v, clipped_surr_v).mean()
-                loss_entropy_v = dist_vs.entropy().mean()
+                loss_entropy_v = -dist_vs.entropy().mean()
 
                 net.zero_grad()
                 loss_v = COEF_VALUE * loss_value_v + loss_policy_v + COEF_ENTROPY * loss_entropy_v

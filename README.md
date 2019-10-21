@@ -13,7 +13,7 @@ Currently, PyRL includes implementations of:
 * [DQN](dqn) ([Nature 2015](https://storage.googleapis.com/deepmind-media/dqn/DQNNaturePaper.pdf))
 * [A3C](a3c) ([ICML 2016](https://arxiv.org/pdf/1602.01783.pdf))
 * [DDPG](ddpg) ([ICML 2016](https://arxiv.org/abs/1509.02971), on the list)
-* [PPO](ppo) ([arXiv 2017](https://arxiv.org/abs/1707.06347), ongoing)
+* [PPO](ppo1) ([arXiv 2017](https://arxiv.org/abs/1707.06347), ongoing)
 * [RAINBOW](rainbow) ([AAAI 2018](https://arxiv.org/pdf/1710.02298.pdf), on the list)
 
 More methods may be included in the future. 
