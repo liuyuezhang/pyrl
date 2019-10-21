@@ -100,10 +100,3 @@ To cite this repository in publications:
       journal = {GitHub repository},
       howpublished = {\url{https://github.com/liuyuezhangadam/pyrl}},
     }
-
-### Acknowledgements
-I would like to express my great thankness to authors of 
-several high quality deep RL implementations. References are provided 
-in each independent READMEs. Frankly speaking, I am not familiar with 
-LICENSE issues, so please contact me if I made any mistakes on 
-copyright affairs.
