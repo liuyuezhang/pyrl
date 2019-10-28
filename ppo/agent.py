@@ -1,54 +1,41 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributions import Categorical
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim, n_latent_var):
+    def __init__(self, state_dim, action_dim, n_latent_var=64):
         super(ActorCritic, self).__init__()
-        self.affine = nn.Linear(state_dim, n_latent_var)
+        self.linear1 = nn.Linear(state_dim, n_latent_var)
+        self.linear2 = nn.Linear(n_latent_var, n_latent_var)
+        self.actor = nn.Linear(n_latent_var, action_dim)
+        self.critic = nn.Linear(n_latent_var, 1)
 
-        # actor
-        self.action_layer = nn.Sequential(
-            nn.Linear(state_dim, n_latent_var),
-            nn.Tanh(),
-            nn.Linear(n_latent_var, n_latent_var),
-            nn.Tanh(),
-            nn.Linear(n_latent_var, action_dim),
-            nn.Softmax(dim=-1)
-        )
-
-        # critic
-        self.value_layer = nn.Sequential(
-            nn.Linear(state_dim, n_latent_var),
-            nn.Tanh(),
-            nn.Linear(n_latent_var, n_latent_var),
-            nn.Tanh(),
-            nn.Linear(n_latent_var, 1)
-        )
-
-    def forward(self):
-        raise NotImplementedError
+    def forward(self, x):
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        return F.softmax(self.actor(x), dim=-1), self.critic(x),
 
 
 class Memory:
     def __init__(self):
-        self.actions = []
-        self.states = []
-        self.logprobs = []
+        self.actions_v = []
+        self.states_v = []
+        self.log_prob_actions_v = []
         self.rewards = []
         self.dones = []
 
     def clear(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
+        del self.actions_v[:]
+        del self.states_v[:]
+        del self.log_prob_actions_v[:]
         del self.rewards[:]
         del self.dones[:]
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, n_latent_var, lr, gamma, K_epochs, eps_clip, device):
+    def __init__(self, state_dim, action_dim, lr, gamma, K_epochs, eps_clip, device):
         self.lr = lr
         self.gamma = gamma
         self.eps_clip = eps_clip
@@ -57,21 +44,19 @@ class PPO:
 
         self.memory = Memory()
 
-        self.policy = ActorCritic(state_dim, action_dim, n_latent_var).to(device)
+        self.policy = ActorCritic(state_dim, action_dim).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
-
-        self.MseLoss = nn.MSELoss()
 
     def act(self, state):
         with torch.no_grad():
             state_v = torch.from_numpy(state).float().to(self.device)
-            action_probs_v = self.policy.action_layer(state_v)
-            dist_v = Categorical(action_probs_v)
-            action_v = dist_v.sample()
+            action_probs_v = self.policy.forward(state_v)[0]
+            dist = Categorical(action_probs_v)
+            action_v = dist.sample()
 
-            self.memory.states.append(state_v)
-            self.memory.actions.append(action_v)
-            self.memory.logprobs.append(dist_v.log_prob(action_v))
+            self.memory.states_v.append(state_v)
+            self.memory.actions_v.append(action_v)
+            self.memory.log_prob_actions_v.append(dist.log_prob(action_v))
 
         return action_v.item()
 
@@ -81,44 +66,41 @@ class PPO:
 
     def update(self):
         # Monte Carlo estimate of state rewards:
-        rewards = []
-        discounted_reward = 0
+        Rs = []
+        R = 0
         for reward, done in zip(reversed(self.memory.rewards), reversed(self.memory.dones)):
-            if done:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            rewards.insert(0, discounted_reward)
+            R = reward + (1-done) * self.gamma * R
+            Rs.insert(0, R)
 
         # Normalizing the rewards:
-        rewards = torch.tensor(rewards).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+        Rs_v = torch.Tensor(Rs).to(self.device)
+        Rs_v = (Rs_v - Rs_v.mean()) / (Rs_v.std() + 1e-8)
 
         # convert list to tensor
-        old_states = torch.stack(self.memory.states).to(self.device).detach()
-        old_actions = torch.stack(self.memory.actions).to(self.device).detach()
-        old_logprobs = torch.stack(self.memory.logprobs).to(self.device).detach()
+        old_states_v = torch.stack(self.memory.states_v).to(self.device).detach()
+        old_actions_v = torch.stack(self.memory.actions_v).to(self.device).detach()
+        old_log_prob_actions_v = torch.stack(self.memory.log_prob_actions_v).to(self.device).detach()
 
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             # Evaluating old actions and values :
-            values = self.policy.value_layer(old_states)
-            action_probs = self.policy.action_layer(old_states)
-            dist = Categorical(action_probs)
-            logprobs = dist.log_prob(old_actions)
-            dist_entropy = dist.entropy()
+            action_probs_v, values_v = self.policy.forward(old_states_v)
+            dist = Categorical(action_probs_v)
+            log_prob_actions_v = dist.log_prob(old_actions_v)
+            entropy_v = dist.entropy()
 
             # Finding the ratio (pi_theta / pi_theta__old):
-            ratios = torch.exp(logprobs - old_logprobs.detach())
+            ratios_v = torch.exp(log_prob_actions_v - old_log_prob_actions_v.detach())
 
             # Finding Surrogate Loss:
-            advantages = rewards - values.detach()
-            surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(values, rewards) - 0.01 * dist_entropy
+            advs_v = Rs_v - values_v.detach()
+            surr1_v = ratios_v * advs_v
+            surr2_v = torch.clamp(ratios_v, 1 - self.eps_clip, 1 + self.eps_clip) * advs_v
+            loss_v = -torch.min(surr1_v, surr2_v) + 0.5 * F.mse_loss(values_v, Rs_v) - 0.01 * entropy_v
 
             # take gradient step
             self.optimizer.zero_grad()
-            loss.mean().backward()
+            loss_v.mean().backward()
             self.optimizer.step()
 
         self.memory.clear()

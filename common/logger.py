@@ -42,7 +42,7 @@ class Logger:
         self.eps_reward += reward
         self.eps_length += 1
         if done:
-            self.logger.info("{},{},{}".format(t, self.eps_reward, info))
+            self.logger.info("{},{}".format(t, self.eps_reward))
             self.reward_list.append(self.eps_reward)
             self.eps_cnt += 1
 
