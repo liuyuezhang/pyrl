@@ -35,7 +35,12 @@ class Memory:
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, lr, gamma, K_epochs, eps_clip, device):
+    def __init__(self, N, T, state_dim, action_dim, lr, gamma, K_epochs, eps_clip, device):
+        self.N = N
+        self.T = T
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+
         self.lr = lr
         self.gamma = gamma
         self.eps_clip = eps_clip
@@ -53,12 +58,13 @@ class PPO:
             action_probs_v = self.policy.forward(state_v)[0]
             dist = Categorical(action_probs_v)
             action_v = dist.sample()
+            log_prob_action_v = dist.log_prob(action_v)
 
             self.memory.states_v.append(state_v)
             self.memory.actions_v.append(action_v)
-            self.memory.log_prob_actions_v.append(dist.log_prob(action_v))
+            self.memory.log_prob_actions_v.append(log_prob_action_v)
 
-        return action_v.item()
+        return action_v.data.cpu().numpy()
 
     def step(self, reward, done):
         self.memory.rewards.append(reward)
@@ -76,10 +82,16 @@ class PPO:
         Rs_v = torch.Tensor(Rs).to(self.device)
         Rs_v = (Rs_v - Rs_v.mean()) / (Rs_v.std() + 1e-8)
 
-        # convert list to tensor
+        # Convert list to tensor
         old_states_v = torch.stack(self.memory.states_v).to(self.device).detach()
         old_actions_v = torch.stack(self.memory.actions_v).to(self.device).detach()
         old_log_prob_actions_v = torch.stack(self.memory.log_prob_actions_v).to(self.device).detach()
+
+        # Reshape
+        old_states_v = old_states_v.view((self.T * self.N, self.state_dim))
+        old_actions_v = old_actions_v.view(self.T * self.N)
+        old_log_prob_actions_v = old_log_prob_actions_v.view(self.T * self.N)
+        Rs_v = Rs_v.view(self.T * self.N)
 
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
@@ -98,7 +110,7 @@ class PPO:
             surr2_v = torch.clamp(ratios_v, 1 - self.eps_clip, 1 + self.eps_clip) * advs_v
             loss_v = -torch.min(surr1_v, surr2_v) + 0.5 * F.mse_loss(values_v, Rs_v) - 0.01 * entropy_v
 
-            # take gradient step
+            # Take gradient step
             self.optimizer.zero_grad()
             loss_v.mean().backward()
             self.optimizer.step()

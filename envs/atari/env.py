@@ -2,7 +2,7 @@ from envs.atari.wrappers import *
 import gym
 
 
-def make_env(env_id, seed=0, stack_frames=1, max_episode_steps=2500, episodic_life=True, reward_clipping=True):
+def make_env(env_id, seed=0, max_episode_steps=2500, stack_frames=1, episodic_life=True, reward_clipping=True):
     env = gym.make(env_id)
     assert 'NoFrameskip' in env.spec.id
     env.seed(seed)

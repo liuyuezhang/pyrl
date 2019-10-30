@@ -30,8 +30,8 @@ class VecLogger:
         self.print_freq = print_freq
         self.save_model = save_model
 
-        self.eps_reward = np.zeros((self.N, 1))
-        self.eps_length = np.zeros((self.N, 1))
+        self.eps_reward = np.zeros(self.N)
+        self.eps_length = np.zeros(self.N)
         self.eps_cnt = 0
         self.reward_list = []
         self.best_mean_reward = float('-inf')
@@ -41,7 +41,7 @@ class VecLogger:
 
     def log(self, t, reward, done, info=None):
         self.eps_reward += reward
-        self.eps_length += np.ones((self.N, 1))
+        self.eps_length += 1
 
         if np.sum(done) > 0:
             avr_eps_reward = np.mean(self.eps_reward[done])
